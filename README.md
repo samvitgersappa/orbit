@@ -1,122 +1,291 @@
-# ORBIT
-> Observability for Runs, Behavior, Inspection, and Triage
+<p align="center">
+  <img src="https://img.shields.io/badge/🪐-ORBIT-blueviolet?style=for-the-badge&labelColor=1a1a2e" alt="ORBIT" height="60"/>
+</p>
 
-ORBIT is an open-source developer tool designed to provide local-first observability, replay capabilities, and security guardrails for LangGraph agents running on Ollama. It enables developers to trace agent executions, understand failures, and ensure safety without relying on cloud infrastructure.
+<h1 align="center">ORBIT</h1>
 
-By operating entirely locally, ORBIT ensures that sensitive data, prompts, and agent internal states remain on your machine. It is optimized for Apple Silicon devices utilizing Ollama for inference and SQLite for data persistence.
+<p align="center">
+  <strong>Local-first observability, replay & security for AI agents</strong>
+</p>
 
----
+<p align="center">
+  <em>Run any local AI agent and immediately understand why it succeeds, fails, or becomes unsafe — entirely on your own machine.</em>
+</p>
 
-## Key Features
+<p align="center">
+  <a href="https://github.com/samvitgersappa/orbit/actions/workflows/ci.yml">
+    <img src="https://github.com/samvitgersappa/orbit/actions/workflows/ci.yml/badge.svg" alt="CI"/>
+  </a>
+  <a href="https://github.com/samvitgersappa/orbit/blob/main/LICENSE">
+    <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"/>
+  </a>
+  <img src="https://img.shields.io/badge/python-3.12+-3776AB?logo=python&logoColor=white" alt="Python 3.12+"/>
+  <img src="https://img.shields.io/badge/Ollama-local_inference-000000?logo=ollama&logoColor=white" alt="Ollama"/>
+  <img src="https://img.shields.io/badge/LangGraph-agents-1C3C3C?logo=langchain&logoColor=white" alt="LangGraph"/>
+  <a href="https://github.com/samvitgersappa/orbit/stargazers">
+    <img src="https://img.shields.io/github/stars/samvitgersappa/orbit?style=social" alt="GitHub Stars"/>
+  </a>
+</p>
 
-- **Local-First Execution:** No telemetry, no cloud dependencies. Your data stays entirely on your device.
-- **Deep Tracing:** Comprehensive tracing of LangGraph agents, capturing every node execution, tool call, and model response.
-- **Failure Replay:** Reconstruct an agent's execution timeline step-by-step to visualize exactly where and why a failure occurred.
-- **Agent Reliability Index (ARI):** A quantitative framework that scores agent runs based on task success, hallucination rates, tool accuracy, and latency.
-- **Agent Arena:** Pit open-weights models against each other to evaluate performance across the same tasks objectively.
-- **Security Guardrails:** Built-in prompt injection and toxic content filtering utilizing Little Canary and Llama Guard 3, categorized according to the OWASP Top 10 for LLMs.
+<br/>
 
----
-
-## Architecture
-
-ORBIT is composed of several specialized subsystems designed for high-performance local execution:
-
-### 1. Tracing & Agent Integration
-At its core, ORBIT provides the `@trace_agent` decorator which seamlessly instruments LangGraph applications. This module intercepts execution state, captures Ollama API interactions via a custom asynchronous client, and emits telemetry data to the local storage engine.
-
-### 2. Security Guard
-The Security module acts as a middleware for LLM interactions:
-- **Input Scanning:** Utilizes the local `little-canary` library to detect obfuscated prompt injection attempts before they reach the primary inference model.
-- **Content Safety:** Employs an asynchronous wrapper around Llama Guard 3 (served via Ollama) to analyze both user inputs and agent outputs for policy violations and toxicity.
-
-### 3. Analytics & Evaluation Engines
-- **Failure Detection Engine:** Post-processes execution traces to identify common failure patterns such as tool invocation errors, context window timeouts, or empty responses.
-- **ARI Evaluator:** Computes the composite Agent Reliability Index by analyzing tool accuracy metrics and response latency.
-
-### 4. Storage & API Layer
-- **Database:** Uses `aiosqlite` and `SQLAlchemy 2.0` (async) to persist records (runs, traces, failures, arena matches) in a local SQLite database.
-- **Backend:** A FastAPI application exposing asynchronous endpoints for the frontend dashboard and CLI.
-
-### 5. Presentation Layer
-- **Dashboard:** A Vite + React application styled with Tailwind CSS and shadcn/ui. It provides real-time insights into runs, security events, and agent comparisons.
-- **CLI:** A Typer-based command-line interface for initiating traces, running arena battles, and launching the application server.
+<p align="center">
+  <a href="#-quick-start">Quick Start</a> •
+  <a href="#-features">Features</a> •
+  <a href="#-architecture">Architecture</a> •
+  <a href="#-cli-reference">CLI</a> •
+  <a href="#-dashboard">Dashboard</a> •
+  <a href="#-contributing">Contributing</a>
+</p>
 
 ---
 
-## Installation & Setup
+## Why ORBIT?
+
+Modern LLM agents are powerful but **opaque**. When a workflow fails, hallucinates, or leaks sensitive data, debugging is painful. Cloud-based observability tools require sending your prompts and data off-device.
+
+**ORBIT** is the **LangSmith alternative that runs entirely on your laptop:**
+
+| | Cloud tools | ORBIT |
+|---|---|---|
+| **Data privacy** | Your prompts leave your machine | 🔒 Everything stays local |
+| **Cost** | Per-trace pricing | 🆓 Free & open-source |
+| **Setup** | API keys, accounts, dashboards | ⚡ `uv sync && orbit serve` |
+| **Security scanning** | Manual / separate tool | 🛡️ Built-in, every call |
+| **Model comparison** | Run separately, compare manually | 🏟️ Agent Arena, side-by-side |
+
+---
+
+## ✨ Features
+
+### 🔍 Deep Tracing
+Capture every LangGraph node execution, Ollama LLM call, tool invocation, and error — with full prompt/response logging and latency tracking.
+
+### 🔁 Failure Replay
+Reconstruct any agent run step-by-step. Visualize the execution as an interactive graph with ReactFlow. Pinpoint exactly where and why failures occur.
+
+### 📊 Agent Reliability Index (ARI)
+A quantitative **0–100 score** for every run, composed of:
+- **Task Success** (40%) — Did the agent complete its goal?
+- **Tool Accuracy** (25%) — How many tool calls succeeded?
+- **Hallucination Score** (20%) — Did the agent reference non-existent tools?
+- **Latency Score** (15%) — How fast was the response?
+
+Buckets: **Excellent** (85–100) · **Good** (70–84) · **Fair** (50–69) · **Poor** (0–49)
+
+### 🏟️ Agent Arena
+Pit models against each other on the same task:
+```bash
+orbit battle --task "implement quicksort" --models llama3.1 qwen2.5
+```
+Compare ARI, latency, tool accuracy, and success rates. Persistent leaderboards in the dashboard.
+
+### 🛡️ Security Guard
+Every LLM call is scanned for:
+- **Prompt injection / jailbreak** — via [Little Canary](https://github.com/bpb-innovations/little-canary) (local)
+- **Unsafe content** — via Llama Guard 3 (served by Ollama)
+- **OWASP LLM Top 10** categorization of all findings
+
+### 📈 React Dashboard
+Full observability dashboard with Overview, Runs, Failures, Arena, Replay, Models, Analytics, and Security pages — built with React 19, TypeScript, Tailwind CSS, shadcn/ui, and Recharts.
+
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
-- macOS on Apple Silicon (M-series) is recommended.
-- Python 3.12+
-- Node.js 20+
-- [Ollama](https://ollama.com) installed and running locally.
-- [uv](https://github.com/astral-sh/uv) package manager.
 
-### Local Installation
+- **macOS** on Apple Silicon (M-series) — tested on M4, 16 GB RAM
+- **Python 3.12+**
+- **Node.js 20+**
+- [**Ollama**](https://ollama.com) installed and running
+- [**uv**](https://github.com/astral-sh/uv) package manager
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/samvitgersappa/orbit.git
-   cd orbit
-   ```
+### Install
 
-2. **Sync dependencies:**
-   ```bash
-   uv sync
-   ```
-
-3. **Pull required Ollama models:**
-   Ensure you have the required models for your agents and security guardrails.
-   ```bash
-   ollama pull llama3.1
-   ollama pull llama-guard3
-   ```
-
-## Usage
-
-### Starting the Server
-Start the ORBIT FastAPI backend:
 ```bash
-uv run orbit serve
+# Clone the repo
+git clone https://github.com/samvitgersappa/orbit.git
+cd orbit
+
+# Install Python dependencies
+uv sync
+
+# Pull required Ollama models
+ollama pull llama3.1
+ollama pull llama-guard3
+
+# Install frontend dependencies
+cd frontend && npm install && cd ..
 ```
 
-*Note: In a separate terminal, ensure the React frontend is running via `npm run dev` in the `frontend` directory.*
+### Run
 
-### Tracing an Agent
-Trace a provided example agent workflow:
 ```bash
+# Terminal 1: Start the backend
+uv run orbit serve
+
+# Terminal 2: Start the frontend
+cd frontend && npm run dev
+
+# Terminal 3: Trace an agent
 uv run orbit trace src/orbit/examples/coding_agent.py
 ```
 
-### Viewing the Dashboard
-Navigate to `http://localhost:5173` to view the comprehensive ORBIT dashboard.
+Open **http://localhost:5173** to view the dashboard.
+
+### Docker (One-Command)
+
+```bash
+docker compose up
+```
 
 ---
 
-## Contribution Guide
+## 🏗️ Architecture
 
-We welcome contributions from the community to expand ORBIT's capabilities, add support for new agent frameworks, and improve the user experience.
+```mermaid
+graph TB
+    subgraph "Agent Layer"
+        A["@trace_agent Decorator"]
+        B["LangGraph Agent"]
+        C["OllamaClient"]
+    end
 
-### Development Environment Setup
-1. Fork the repository and clone your fork locally.
-2. Initialize the environment using `uv sync --all-extras --dev`.
-3. Install frontend dependencies: `cd frontend && npm install`.
+    subgraph "Security Layer"
+        D["SecurityGuard"]
+        E["Little Canary<br/>(Prompt Injection)"]
+        F["Llama Guard 3<br/>(Content Safety)"]
+    end
 
-### Contribution Workflow
-1. **Discuss before building:** For significant architectural changes or new features, please open an Issue to discuss your proposal with the maintainers.
-2. **Branching:** Create a new branch for your feature or bug fix (`git checkout -b feature/your-feature-name`).
-3. **Coding Standards:** 
-   - Ensure all Python code is fully typed.
-   - We use `ruff` for linting and formatting, and `mypy` for static type checking.
-4. **Testing:** Write unit tests for your changes. Run the test suite via `uv run pytest` before submitting a pull request.
-5. **Pull Requests:** Submit a clean, concise Pull Request. Ensure that the GitHub Actions CI pipeline passes successfully.
+    subgraph "Analytics Layer"
+        G["ARI Evaluator"]
+        H["Failure Detection Engine"]
+        I["Arena Engine"]
+    end
 
-### Roadmap
-Please consult the `docs/roadmap.md` file for an overview of planned features, including support for non-LangGraph frameworks (e.g., CrewAI, AutoGen) and advanced UI replay execution.
+    subgraph "Storage & API"
+        J["SQLite + SQLAlchemy 2.0"]
+        K["FastAPI Backend"]
+    end
+
+    subgraph "Presentation"
+        L["React Dashboard"]
+        M["Typer CLI"]
+    end
+
+    B --> A
+    A --> C
+    A --> D
+    D --> E
+    D --> F
+    A --> J
+    J --> G
+    J --> H
+    J --> I
+    J --> K
+    K --> L
+    K --> M
+```
+
+> For a deep dive, see [docs/architecture.md](docs/architecture.md).
 
 ---
 
-## License
+## 💻 CLI Reference
 
-ORBIT is distributed under the MIT License. See the `LICENSE` file for more information.
+| Command | Description |
+|---|---|
+| `orbit serve` | Start the FastAPI backend server |
+| `orbit trace <path>` | Run and trace an agent script |
+| `orbit replay <run_id>` | Replay a run's execution timeline |
+| `orbit battle --task "..." --models m1 m2` | Run Agent Arena to compare models |
+| `orbit report <run_id>` | Print ARI breakdown & failure summary |
+| `orbit runs` | List recent runs |
+| `orbit models` | List available models |
+| `orbit security <run_id>` | Show security events for a run |
+
+---
+
+## 📊 Dashboard
+
+The ORBIT dashboard provides real-time insights across 8 pages:
+
+| Page | What it shows |
+|---|---|
+| **Overview** | Total runs, avg ARI, success rate, security alerts |
+| **Runs** | Filterable table of all agent executions |
+| **Failures** | Failures grouped by type with root cause analysis |
+| **Arena** | Model leaderboard ranked by ARI |
+| **Replay** | Interactive execution graph with timeline scrubbing |
+| **Models** | Available Ollama models + usage stats |
+| **Analytics** | ARI distribution, latency charts, tool usage |
+| **Security** | OWASP category breakdown, per-run security summary |
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technologies |
+|---|---|
+| **Backend** | Python 3.12 · FastAPI · Pydantic v2 · SQLAlchemy 2.0 (async) · SQLite via aiosqlite |
+| **Frontend** | React 19 · TypeScript · Vite · Tailwind CSS · shadcn/ui · Recharts · ReactFlow |
+| **Agent** | LangGraph · Ollama (llama3.1, qwen2.5, gemma3) |
+| **Security** | Little Canary · Llama Guard 3 |
+| **CLI** | Typer |
+| **DevOps** | uv · Docker · GitHub Actions · ruff · mypy · pytest |
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Whether it's fixing a bug, adding a feature, or improving docs — every contribution matters.
+
+```bash
+# Fork, clone, and set up
+git clone https://github.com/<your-username>/orbit.git
+cd orbit
+uv sync --all-extras --dev
+cd frontend && npm install && cd ..
+
+# Run tests
+uv run pytest
+uv run ruff check .
+uv run mypy src
+```
+
+See [**CONTRIBUTING.md**](CONTRIBUTING.md) for detailed guidelines.
+
+### Areas Where Help is Wanted
+
+- 🔌 **More API endpoints** — `/runs/{id}`, `/arena`, `/models`, `/metrics`, `/security/*`
+- 🤖 **Example agents** — research_agent.py, retrieval_agent.py
+- 🧪 **Tests** — unit tests for analytics, security, and replay engines
+- 🎨 **Dashboard** — wire up live data, build out Arena and Replay pages
+- 📦 **Framework support** — CrewAI, AutoGen integrations (Phase 2)
+
+---
+
+## 📋 Roadmap
+
+See [docs/roadmap.md](docs/roadmap.md) for the full roadmap.
+
+**Phase 1** (Current) — Core tracing, ARI, Arena, Security Guard, React dashboard
+**Phase 2** — Multi-framework support, live replay, advanced Arena testing
+**Phase 3** — PII redaction, benchmark suites, community plugins
+
+---
+
+## 📄 License
+
+ORBIT is open-source under the [MIT License](LICENSE).
+
+---
+
+<p align="center">
+  <strong>If ORBIT helps you debug your agents, consider giving it a ⭐</strong>
+  <br/>
+  <a href="https://github.com/samvitgersappa/orbit">
+    <img src="https://img.shields.io/github/stars/samvitgersappa/orbit?style=social" alt="Star on GitHub"/>
+  </a>
+</p>
